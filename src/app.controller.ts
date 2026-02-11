@@ -6,7 +6,12 @@ export class AppController {
   constructor(private readonly appService: AppService) {}
 
   @Get()
-  getHello(): string {
-    return this.appService.getHello();
+  health() {
+    return {
+      status: 'ok',
+      service: 'ImpactTrack API',
+      version: '1.0.0',
+      timestamp: new Date().toISOString(),
+    };
   }
 }
