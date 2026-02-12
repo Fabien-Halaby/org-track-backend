@@ -2,12 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
-    Indicator,
-    IndicatorValue,
+  Indicator,
+  IndicatorValue,
 } from '../indicators/entities/indicator.entity';
 import * as puppeteer from 'puppeteer';
 import * as ExcelJS from 'exceljs';
 import { ProjectsService } from '../projects/projects.service';
+import { Project } from 'src/projects/entities/project.entity';
 
 @Injectable()
 export class ReportsService {
@@ -46,26 +47,29 @@ export class ReportsService {
 
     const html = this.buildPdfTemplate(project, indicators);
 
-    const browser = await puppeteer.launch({ 
+    const browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
-    
+
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
-    
-    const pdf = await page.pdf({ 
-      format: 'A4', 
+
+    const pdf = await page.pdf({
+      format: 'A4',
       printBackground: true,
-      margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' }
+      margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
     });
-    
+
     await browser.close();
 
     return Buffer.from(pdf);
   }
 
-  async generateProjectExcel(projectId: string, orgId: string): Promise<Buffer> {
+  async generateProjectExcel(
+    projectId: string,
+    orgId: string,
+  ): Promise<Buffer> {
     const project = await this.projectsService.findOne(projectId, orgId);
     const indicators = await this.getIndicatorsWithHistory(projectId, orgId);
 
@@ -75,89 +79,137 @@ export class ReportsService {
     // === FEUILLE RÉSUMÉ ===
     summarySheet.mergeCells('A1:E1');
     summarySheet.getCell('A1').value = project.name;
-    summarySheet.getCell('A1').font = { size: 16, bold: true, color: { argb: '2563EB' } };
+    summarySheet.getCell('A1').font = {
+      size: 16,
+      bold: true,
+      color: { argb: '2563EB' },
+    };
     summarySheet.getCell('A1').alignment = { horizontal: 'center' };
 
     summarySheet.mergeCells('A2:E2');
-    summarySheet.getCell('A2').value = `Généré le ${new Date().toLocaleDateString('fr-FR')}`;
+    summarySheet.getCell('A2').value =
+      `Généré le ${new Date().toLocaleDateString('fr-FR')}`;
     summarySheet.getCell('A2').alignment = { horizontal: 'center' };
-    summarySheet.getCell('A2').font = { italic: true, color: { argb: '6B7280' } };
+    summarySheet.getCell('A2').font = {
+      italic: true,
+      color: { argb: '6B7280' },
+    };
 
     // Infos projet
     summarySheet.addRow([]);
-    summarySheet.addRow(['Statut', project.status, '', 'Budget', project.budget ? `${project.budget} €` : 'N/A']);
+    summarySheet.addRow([
+      'Statut',
+      project.status,
+      '',
+      'Budget',
+      project.budget ? `${project.budget} €` : 'N/A',
+    ]);
     summarySheet.addRow(['Description', project.description || 'N/A']);
 
     // Tableau résumé indicateurs
     summarySheet.addRow([]);
-    summarySheet.addRow(['INDICATEURS - RÉSUMÉ']).font = { bold: true, size: 14 };
-    
-    const headerRow = summarySheet.addRow(['Indicateur', 'Type', 'Objectif', 'Valeur actuelle', 'Nb de saisies']);
-    headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
-    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2563EB' } };
+    summarySheet.addRow(['INDICATEURS - RÉSUMÉ']).font = {
+      bold: true,
+      size: 14,
+    };
 
-    indicators.forEach(ind => {
-      const currentValue = ind.values?.length ? ind.values[ind.values.length - 1].value : 0;
-      
+    const headerRow = summarySheet.addRow([
+      'Indicateur',
+      'Type',
+      'Objectif',
+      'Valeur actuelle',
+      'Nb de saisies',
+    ]);
+    headerRow.font = { bold: true, color: { argb: 'FFFFFF' } };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: '2563EB' },
+    };
+
+    indicators.forEach((ind) => {
+      const currentValue = ind.values?.length
+        ? ind.values[ind.values.length - 1].value
+        : 0;
+
       summarySheet.addRow([
         ind.name,
         ind.type,
         ind.targetValue || 'N/A',
         currentValue,
-        ind.values?.length || 0
+        ind.values?.length || 0,
       ]);
     });
 
     // === FEUILLES DÉTAIL PAR INDICATEUR ===
-    indicators.forEach((index, indicator) => {
+    indicators.forEach((indicator, index) => {
       let sheetName = indicator.name.substring(0, 25);
-      if (sheetName.length === 0) sheetName = 'Indicateur';
-  
+      if (sheetName.length === 0) {
+        sheetName = 'Indicateur';
+      }
+
       const finalName = index === 0 ? sheetName : `${sheetName} (${index + 1})`;
-  
+
       const sheet = workbook.addWorksheet(finalName);
-       
-      sheet.addRow([`Indicateur: ${indicator.name}`]).font = { bold: true, size: 14 };
-      sheet.addRow([`Type: ${indicator.type} | Objectif: ${indicator.targetValue || 'N/A'}`]);
+
+      sheet.addRow([`Indicateur: ${indicator.name}`]).font = {
+        bold: true,
+        size: 14,
+      };
+      sheet.addRow([
+        `Type: ${indicator.type} | Objectif: ${indicator.targetValue || 'N/A'}`,
+      ]);
       sheet.addRow([]);
-      
+
       // Tableau historique
-      const histHeader = sheet.addRow(['Période', 'Valeur', 'Notes', 'Date de saisie']);
+      const histHeader = sheet.addRow([
+        'Période',
+        'Valeur',
+        'Notes',
+        'Date de saisie',
+      ]);
       histHeader.font = { bold: true, color: { argb: 'FFFFFF' } };
-      histHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '10B981' } };
-      
+      histHeader.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: '10B981' },
+      };
+
       if (indicator.values?.length) {
-        indicator.values.forEach(val => {
+        indicator.values.forEach((val) => {
           sheet.addRow([
             val.period,
             val.value,
             val.notes || '',
-            new Date(val.createdAt).toLocaleDateString('fr-FR')
+            new Date(val.createdAt).toLocaleDateString('fr-FR'),
           ]);
         });
-        
+
         // Ligne total/progression
         const lastValue = indicator.values[indicator.values.length - 1].value;
         sheet.addRow([]);
         const totalRow = sheet.addRow(['', 'DERNIÈRE VALEUR:', lastValue, '']);
         totalRow.font = { bold: true };
-        
+
         if (indicator.targetValue) {
-          const progress = Math.min((Number(lastValue) / Number(indicator.targetValue)) * 100, 100);
+          const progress = Math.min(
+            (Number(lastValue) / Number(indicator.targetValue)) * 100,
+            100,
+          );
           sheet.addRow(['', 'PROGRESSION:', `${progress.toFixed(1)}%`, '']);
         }
       } else {
         sheet.addRow(['Aucune valeur saisie pour cet indicateur']);
       }
-      
+
       // Auto-width
-      sheet.columns.forEach(column => {
+      sheet.columns.forEach((column) => {
         column.width = 20;
       });
     });
 
     // Auto-width résumé
-    summarySheet.columns.forEach(column => {
+    summarySheet.columns.forEach((column) => {
       column.width = 20;
     });
 
@@ -165,33 +217,43 @@ export class ReportsService {
     return Buffer.from(buffer);
   }
 
-  private buildPdfTemplate(project: any, indicators: any[]): string {
+  private buildPdfTemplate(project: Project, indicators: any[]): string {
     const now = new Date().toLocaleDateString('fr-FR', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
     });
 
     // Génère le HTML pour chaque indicateur avec son historique
-    const indicatorsHtml = indicators.map(ind => {
-      const currentValue = ind.values?.length ? ind.values[ind.values.length - 1].value : 0;
-      const progress = ind.targetValue 
-        ? Math.min((Number(currentValue) / Number(ind.targetValue)) * 100, 100)
-        : 0;
+    const indicatorsHtml = (indicators as Indicator[])
+      .map((ind) => {
+        const currentValue = ind.values?.length
+          ? ind.values[ind.values.length - 1].value
+          : 0;
+        const progress = ind.targetValue
+          ? Math.min(
+              (Number(currentValue) / Number(ind.targetValue)) * 100,
+              100,
+            )
+          : 0;
 
-      // Historique des valeurs
-      const historyRows = ind.values?.length 
-        ? ind.values.map((val: any) => `
+        // Historique des valeurs
+        const historyRows = ind.values?.length
+          ? ind.values
+              .map(
+                (val: IndicatorValue) => `
           <tr style="font-size: 12px; color: #6b7280;">
             <td style="padding: 8px 12px; border-bottom: 1px solid #f3f4f6;">${val.period}</td>
             <td style="padding: 8px 12px; border-bottom: 1px solid #f3f4f6; font-weight: 600; color: #111827;">${val.value}</td>
             <td style="padding: 8px 12px; border-bottom: 1px solid #f3f4f6;">${val.notes || '-'}</td>
           </tr>
-        `).join('')
-        : '<tr><td colspan="3" style="padding: 12px; color: #9ca3af; text-align: center;">Aucune valeur saisie</td></tr>';
+        `,
+              )
+              .join('')
+          : '<tr><td colspan="3" style="padding: 12px; color: #9ca3af; text-align: center;">Aucune valeur saisie</td></tr>';
 
-      return `
+        return `
         <div style="margin-bottom: 32px; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
           <!-- Header indicateur -->
           <div style="background: #f9fafb; padding: 16px 20px; border-bottom: 1px solid #e5e7eb;">
@@ -224,13 +286,17 @@ export class ReportsService {
             </div>
             
             <!-- Barre de progression -->
-            ${progress > 0 ? `
+            ${
+              progress > 0
+                ? `
               <div style="margin-bottom: 20px;">
                 <div style="height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
                   <div style="width: ${progress}%; height: 100%; background: linear-gradient(90deg, #10b981, #34d399); border-radius: 4px;"></div>
                 </div>
               </div>
-            ` : ''}
+            `
+                : ''
+            }
             
             <!-- Tableau historique -->
             <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Historique des saisies</h4>
@@ -249,7 +315,8 @@ export class ReportsService {
           </div>
         </div>
       `;
-    }).join('');
+      })
+      .join('');
 
     return `
       <!DOCTYPE html>
