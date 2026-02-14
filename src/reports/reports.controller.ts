@@ -5,7 +5,7 @@ import { ReportsService } from './reports.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { RequestWithUser } from '../auth/interfaces/request-with-user.interface';
 
-@ApiTags('📄 Rapports')
+@ApiTags('Rapports')
 @Controller('reports')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
