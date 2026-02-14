@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Indicator, IndicatorValue } from './entities/indicator.entity';
-import { CreateIndicatorDto, AddValueDto } from './dto';
+import { CreateIndicatorDto, AddValueDto, UpdateIndicatorDto } from './dto';
 import { ProjectsService } from '../projects/projects.service';
 
 @Injectable()
@@ -14,6 +14,19 @@ export class IndicatorsService {
     private valueRepo: Repository<IndicatorValue>,
     private projectsService: ProjectsService,
   ) {}
+
+  async findOne(indicatorId: string, orgId: string): Promise<Indicator> {
+    const indicator = await this.indicatorRepo.findOne({
+      where: { id: indicatorId },
+      relations: ['project', 'values'],
+    });
+
+    if (!indicator || indicator.project.organizationId !== orgId) {
+      throw new NotFoundException('Indicateur non trouvé');
+    }
+
+    return indicator;
+  }
 
   async findByProject(projectId: string, orgId: string) {
     await this.projectsService.findOne(projectId, orgId);
@@ -36,6 +49,42 @@ export class IndicatorsService {
     indicator.projectId = dto.projectId;
 
     return this.indicatorRepo.save(indicator);
+  }
+
+  async update(
+    indicatorId: string,
+    dto: UpdateIndicatorDto,
+    orgId: string,
+  ): Promise<Indicator> {
+    const indicator = await this.indicatorRepo.findOne({
+      where: { id: indicatorId },
+      relations: ['project'],
+    });
+
+    if (!indicator || indicator.project.organizationId !== orgId) {
+      throw new NotFoundException('Indicateur non trouvé');
+    }
+
+    const updateData = dto as CreateIndicatorDto;
+    indicator.name = updateData.name ?? indicator.name;
+    indicator.description = updateData.description ?? indicator.description;
+    indicator.type = (updateData.type as Indicator['type']) ?? indicator.type;
+    indicator.targetValue = updateData.targetValue ?? indicator.targetValue;
+
+    return this.indicatorRepo.save(indicator);
+  }
+
+  async remove(indicatorId: string, orgId: string): Promise<void> {
+    const indicator = await this.indicatorRepo.findOne({
+      where: { id: indicatorId },
+      relations: ['project'],
+    });
+
+    if (!indicator || indicator.project.organizationId !== orgId) {
+      throw new NotFoundException('Indicateur non trouvé');
+    }
+
+    await this.indicatorRepo.remove(indicator);
   }
 
   async addValue(
@@ -70,6 +119,63 @@ export class IndicatorsService {
     return this.valueRepo.save(value);
   }
 
+  async updateValue(
+    indicatorId: string,
+    valueId: string,
+    dto: Partial<AddValueDto>,
+    orgId: string,
+  ): Promise<IndicatorValue> {
+    const indicator = await this.indicatorRepo.findOne({
+      where: { id: indicatorId },
+      relations: ['project'],
+    });
+
+    if (!indicator || indicator.project.organizationId !== orgId) {
+      throw new NotFoundException('Indicateur non trouvé');
+    }
+
+    const value = await this.valueRepo.findOne({
+      where: { id: valueId, indicatorId },
+    });
+
+    if (!value) {
+      throw new NotFoundException('Valeur non trouvée');
+    }
+
+    Object.assign(value, {
+      value: dto.value ?? value.value,
+      period: dto.period ?? value.period,
+      notes: dto.notes ?? value.notes,
+    });
+
+    return this.valueRepo.save(value);
+  }
+
+  async deleteValue(
+    indicatorId: string,
+    valueId: string,
+    orgId: string,
+  ): Promise<void> {
+    const indicator = await this.indicatorRepo.findOne({
+      where: { id: indicatorId },
+      relations: ['project'],
+    });
+
+    if (!indicator || indicator.project.organizationId !== orgId) {
+      throw new NotFoundException('Indicateur non trouvé');
+    }
+
+    const value = await this.valueRepo.findOne({
+      where: { id: valueId, indicatorId },
+    });
+
+    if (!value) {
+      throw new NotFoundException('Valeur non trouvée');
+    }
+
+    await this.valueRepo.remove(value);
+  }
+
   async getTimeline(
     indicatorId: string,
     orgId: string,
@@ -87,18 +193,5 @@ export class IndicatorsService {
       where: { indicatorId },
       order: { period: 'ASC' },
     });
-  }
-
-  async remove(indicatorId: string, orgId: string): Promise<void> {
-    const indicator = await this.indicatorRepo.findOne({
-      where: { id: indicatorId },
-      relations: ['project'],
-    });
-
-    if (!indicator || indicator.project.organizationId !== orgId) {
-      throw new NotFoundException('Indicateur non trouvé');
-    }
-
-    await this.indicatorRepo.remove(indicator);
   }
 }
