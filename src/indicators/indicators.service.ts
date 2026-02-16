@@ -39,7 +39,14 @@ export class IndicatorsService {
   }
 
   async create(dto: CreateIndicatorDto, orgId: string): Promise<Indicator> {
-    await this.projectsService.findOne(dto.projectId, orgId);
+    const project = await this.projectsService.findOne(dto.projectId, orgId);
+
+    if (project.status !== 'active') {
+      throw new BadRequestException(
+        `Impossible de créer un indicateur: le projet "${project.name}" n'est pas actif (statut: ${project.status}). ` +
+        `Activez d'abord le projet.`
+      );
+    }
 
     const indicator = new Indicator();
     indicator.name = dto.name;
@@ -99,6 +106,12 @@ export class IndicatorsService {
 
     if (!indicator || indicator.project.organizationId !== orgId) {
       throw new NotFoundException('Indicateur non trouvé');
+    }
+
+    if (indicator.project.status !== 'active') {
+      throw new BadRequestException(
+        `Impossible d'ajouter une valeur: le projet n'est pas actif (statut: ${indicator.project.status})`
+      );
     }
 
     let value = await this.valueRepo.findOne({
