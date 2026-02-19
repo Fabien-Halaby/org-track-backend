@@ -145,12 +145,25 @@ export class InvitationsService {
     invitation.used = true;
     await this.invitationRepo.save(invitation);
 
+    const defaultPermissions = this.getDefaultPermissions(payload.role);
+
+    await this.projectAccessService.create({
+      userId,
+      projectId: null,
+      organizationId: payload.orgId,
+      role: payload.role,
+      permissions: defaultPermissions,
+      grantedById: invitation.invitedById,
+    });
+
     if (payload.projects && payload.projects.length > 0) {
       for (const projectId of payload.projects) {
         await this.projectAccessService.create({
           userId,
           projectId,
-          permissions: payload.permissions || ['read'],
+          organizationId: payload.orgId,
+          role: payload.role,
+          permissions: payload.permissions || defaultPermissions,
           grantedById: invitation.invitedById,
         });
       }

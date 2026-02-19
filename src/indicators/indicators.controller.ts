@@ -14,6 +14,7 @@ import { IndicatorsService } from './indicators.service';
 import { CreateIndicatorDto, AddValueDto, UpdateIndicatorDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { RequestWithUser } from '../auth/interfaces/request-with-user.interface';
+import { Roles } from 'src/permissions/decorators/roles.decorator';
 
 @ApiTags('Indicateurs')
 @Controller('indicators')
@@ -38,12 +39,14 @@ export class IndicatorsController {
   }
 
   @Post()
+  @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Créer un indicateur' })
   async create(@Body() dto: CreateIndicatorDto, @Req() req: RequestWithUser) {
     return this.service.create(dto, req.user.organizationId);
   }
 
   @Patch(':id')
+  @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Modifier un indicateur' })
   async update(
     @Param('id') id: string,
@@ -54,6 +57,7 @@ export class IndicatorsController {
   }
 
   @Delete(':id')
+  @Roles('admin')
   @ApiOperation({ summary: 'Supprimer un indicateur' })
   async remove(@Param('id') id: string, @Req() req: RequestWithUser) {
     await this.service.remove(id, req.user.organizationId);
@@ -61,6 +65,7 @@ export class IndicatorsController {
   }
 
   @Post(':id/values')
+  @Roles('admin', 'manager', 'agent')
   @ApiOperation({ summary: 'Ajouter/modifier une valeur mensuelle' })
   async addValue(
     @Param('id') id: string,
@@ -77,6 +82,7 @@ export class IndicatorsController {
   }
 
   @Patch(':id/values/:valueId')
+  @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Modifier une valeur' })
   async updateValue(
     @Param('id') id: string,
@@ -88,6 +94,7 @@ export class IndicatorsController {
   }
 
   @Delete(':id/values/:valueId')
+  @Roles('admin', 'manager')
   @ApiOperation({ summary: 'Supprimer une valeur' })
   async deleteValue(
     @Param('id') id: string,

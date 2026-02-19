@@ -62,7 +62,6 @@ export class AuthController {
     );
   }
 
-  // ✅ Endpoint manquant — c'était la cause du problème
   @Post('check-email')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Vérifier si un email existe déjà en base' })

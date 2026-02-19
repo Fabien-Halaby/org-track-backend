@@ -10,6 +10,9 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Project } from '../../projects/entities/project.entity';
+import { Organization } from '../../organizations/entities/organization.entity';
+
+export type AccessRole = 'admin' | 'manager' | 'agent' | 'observer';
 
 @Entity('project_access')
 @Unique(['userId', 'projectId'])
@@ -24,12 +27,26 @@ export class ProjectAccess {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Column()
-  projectId: string;
+  @Column({ nullable: true })
+  projectId: string | null;
 
-  @ManyToOne(() => Project)
+  @ManyToOne(() => Project, { nullable: true })
   @JoinColumn({ name: 'projectId' })
-  project: Project;
+  project: Project | null;
+
+  @Column()
+  organizationId: string;
+
+  @ManyToOne(() => Organization)
+  @JoinColumn({ name: 'organizationId' })
+  organization: Organization;
+
+  @Column({
+    type: 'enum',
+    enum: ['admin', 'manager', 'agent', 'observer'],
+    default: 'agent',
+  })
+  role: AccessRole;
 
   @Column({ type: 'simple-json' })
   permissions: string[];

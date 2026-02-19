@@ -1,11 +1,20 @@
-import { IsString, IsArray } from 'class-validator';
+import { IsString, IsArray, IsOptional, IsEnum } from 'class-validator';
+import type { AccessRole } from '../entities/project-access.entity';
 
 export class CreateProjectAccessDto {
   @IsString()
   userId: string;
 
   @IsString()
-  projectId: string;
+  @IsOptional()
+  projectId?: string | null;
+
+  @IsString()
+  organizationId: string;
+
+  @IsEnum(['admin', 'manager', 'agent', 'observer'])
+  @IsOptional()
+  role?: AccessRole;
 
   @IsArray()
   @IsString({ each: true })

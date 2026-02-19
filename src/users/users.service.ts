@@ -13,13 +13,13 @@ export class UsersService {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.userRepo.findOne({ 
-      where: { email }
+    return this.userRepo.findOne({
+      where: { email },
     });
   }
 
   async findOne(id: string): Promise<User> {
-    return this.userRepo.findOneOrFail({ 
+    return this.userRepo.findOneOrFail({
       where: { id },
       relations: ['organization'],
     });
@@ -32,7 +32,10 @@ export class UsersService {
     });
   }
 
-  async updateRefreshToken(userId: string, refreshToken: string | null): Promise<void> {
+  async updateRefreshToken(
+    userId: string,
+    refreshToken: string | null,
+  ): Promise<void> {
     await this.userRepo.update(userId, { refreshToken });
   }
 }

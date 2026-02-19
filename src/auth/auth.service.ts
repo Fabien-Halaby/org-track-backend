@@ -59,7 +59,6 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    // Chercher TOUS les comptes avec cet email (un par org)
     const users = await this.userRepo.find({
       where: { email: dto.email },
       relations: ['organization'],
@@ -69,7 +68,6 @@ export class AuthService {
       throw new UnauthorizedException('Identifiants invalides');
     }
 
-    // Vérifier le mot de passe pour chaque compte
     const validUsers: User[] = [];
     for (const user of users) {
       const isMatch = await bcrypt.compare(dto.password, user.password);
@@ -80,7 +78,6 @@ export class AuthService {
       throw new UnauthorizedException('Identifiants invalides');
     }
 
-    // Plusieurs comptes → retourner la liste pour que le frontend propose le choix
     if (validUsers.length > 1) {
       return {
         multipleAccounts: true,
@@ -93,7 +90,6 @@ export class AuthService {
       };
     }
 
-    // Un seul compte → connexion directe
     const user = validUsers[0];
     const tokens = await this.generateTokens(user);
 
@@ -104,7 +100,6 @@ export class AuthService {
     };
   }
 
-  // Nouvel endpoint : l'utilisateur choisit son organisation parmi la liste
   async selectAccount(userId: string) {
     const user = await this.userRepo.findOne({
       where: { id: userId },
@@ -141,7 +136,6 @@ export class AuthService {
       );
     }
 
-    // ✅ Vérifier si cet email existe déjà dans CETTE organisation spécifique
     const existingInOrg = await this.userRepo.findOne({
       where: {
         email: dto.email,
@@ -155,7 +149,6 @@ export class AuthService {
       );
     }
 
-    // ✅ Pas de blocage si l'email existe dans une autre org → on crée un nouveau compte
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     const user = await this.usersService.create({
@@ -234,7 +227,6 @@ export class AuthService {
       );
     }
 
-    // Vérifier pas déjà dans cette org
     const alreadyMember = await this.userRepo.findOne({
       where: { email, organizationId: verification.invitation.orgId },
     });
@@ -245,7 +237,6 @@ export class AuthService {
       );
     }
 
-    // ✅ Nouveau compte indépendant avec son propre mot de passe
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = await this.usersService.create({

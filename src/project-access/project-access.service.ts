@@ -14,11 +14,50 @@ export class ProjectAccessService {
   async create(dto: CreateProjectAccessDto) {
     const access = this.accessRepo.create({
       userId: dto.userId,
-      projectId: dto.projectId,
+      projectId: dto.projectId ?? null,
+      organizationId: dto.organizationId,
+      role: dto.role ?? 'agent',
       permissions: dto.permissions,
       grantedById: dto.grantedById,
     });
     return this.accessRepo.save(access);
+  }
+
+  async findUserProjects(
+    userId: string,
+    organizationId: string,
+  ): Promise<string[]> {
+    const accesses = await this.accessRepo.find({
+      where: { userId, organizationId },
+    });
+    return accesses
+      .map((a) => a.projectId)
+      .filter((id): id is string => id !== null);
+  }
+
+  async isOrgMember(userId: string, organizationId: string): Promise<boolean> {
+    const access = await this.accessRepo.findOne({
+      where: { userId, organizationId, projectId: null },
+    });
+    return !!access;
+  }
+
+  async getOrgRole(
+    userId: string,
+    organizationId: string,
+  ): Promise<string | null> {
+    const access = await this.accessRepo.findOne({
+      where: { userId, organizationId, projectId: null },
+    });
+    return access?.role ?? null;
+  }
+
+  async findByOrganization(organizationId: string) {
+    return this.accessRepo.find({
+      where: { organizationId, projectId: null },
+      relations: ['user'],
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async findByUser(userId: string) {
@@ -43,7 +82,6 @@ export class ProjectAccessService {
     const access = await this.accessRepo.findOne({
       where: { userId, projectId },
     });
-
     if (!access) return false;
     return access.permissions.includes(permission);
   }
