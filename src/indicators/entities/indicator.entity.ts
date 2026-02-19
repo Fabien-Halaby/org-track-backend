@@ -11,6 +11,13 @@ import {
 import { Project } from '../../projects/entities/project.entity';
 
 export type IndicatorType = 'number' | 'percentage' | 'currency' | 'boolean';
+export type IndicatorFrequency =
+  | 'daily'
+  | 'weekly'
+  | 'monthly'
+  | 'quarterly'
+  | 'yearly'
+  | 'free';
 
 @Entity('indicators')
 export class Indicator {
@@ -28,6 +35,13 @@ export class Indicator {
     enum: ['number', 'percentage', 'currency', 'boolean'],
   })
   type: IndicatorType;
+
+  @Column({
+    type: 'enum',
+    enum: ['daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'free'],
+    default: 'monthly',
+  })
+  frequency: IndicatorFrequency;
 
   @Column({ type: 'decimal', precision: 15, scale: 4, nullable: true })
   targetValue: number | null;
@@ -60,7 +74,7 @@ export class IndicatorValue {
   value: number;
 
   @Column()
-  period: string; //! YYYY-MM ou YYYY-Q1, YYYY-Q2...
+  period: string; // Format selon fréquence: YYYY-MM-DD, YYYY-WXX, YYYY-MM, YYYY-QX, YYYY
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;

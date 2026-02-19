@@ -23,6 +23,15 @@ export class CreateIndicatorDto {
   @IsEnum(['number', 'percentage', 'currency', 'boolean'])
   type: string;
 
+  @ApiPropertyOptional({
+    enum: ['daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'free'],
+    description: 'Fréquence de saisie des données',
+    default: 'monthly',
+  })
+  @IsOptional()
+  @IsEnum(['daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'free'])
+  frequency?: string;
+
   @ApiPropertyOptional({ example: 50 })
   @IsOptional()
   @IsNumber()

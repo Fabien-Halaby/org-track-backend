@@ -30,6 +30,7 @@ export class ProjectsController {
   constructor(private service: ProjectsService) {}
 
   @Get()
+  @Roles('admin', 'manager', 'agent', 'observer')
   @ApiOperation({ summary: 'Liste des projets selon mon rôle' })
   @ApiQuery({ name: 'status', required: false })
   async findAll(@Req() req: RequestWithUser, @Query('status') status?: string) {

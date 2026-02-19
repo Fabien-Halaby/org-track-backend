@@ -1,12 +1,7 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  ManyToOne,
-  JoinColumn,
-  Unique,
+  Entity, PrimaryGeneratedColumn, Column,
+  CreateDateColumn, UpdateDateColumn,
+  ManyToOne, JoinColumn, Index,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Project } from '../../projects/entities/project.entity';
@@ -15,7 +10,7 @@ import { Organization } from '../../organizations/entities/organization.entity';
 export type AccessRole = 'admin' | 'manager' | 'agent' | 'observer';
 
 @Entity('project_access')
-@Unique(['userId', 'projectId'])
+@Index(['userId', 'organizationId', 'projectId'])
 export class ProjectAccess {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -27,7 +22,7 @@ export class ProjectAccess {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'uuid' })
   projectId: string | null;
 
   @ManyToOne(() => Project, { nullable: true })

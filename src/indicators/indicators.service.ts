@@ -5,7 +5,11 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Indicator, IndicatorValue } from './entities/indicator.entity';
+import {
+  Indicator,
+  IndicatorFrequency,
+  IndicatorValue,
+} from './entities/indicator.entity';
 import { CreateIndicatorDto, AddValueDto, UpdateIndicatorDto } from './dto';
 import { ProjectsService } from '../projects/projects.service';
 
@@ -56,6 +60,8 @@ export class IndicatorsService {
     indicator.name = dto.name;
     indicator.description = dto.description ?? null;
     indicator.type = dto.type as Indicator['type'];
+    indicator.frequency =
+      (dto.frequency as Indicator['frequency']) ?? 'monthly';
     indicator.targetValue = dto.targetValue ?? null;
     indicator.projectId = dto.projectId;
 
@@ -80,8 +86,9 @@ export class IndicatorsService {
     indicator.name = updateData.name ?? indicator.name;
     indicator.description = updateData.description ?? indicator.description;
     indicator.type = (updateData.type as Indicator['type']) ?? indicator.type;
+    indicator.frequency =
+      (updateData.frequency as Indicator['frequency']) ?? indicator.frequency; // ✅ ajout
     indicator.targetValue = updateData.targetValue ?? indicator.targetValue;
-
     return this.indicatorRepo.save(indicator);
   }
 
@@ -115,6 +122,13 @@ export class IndicatorsService {
     if (indicator.project.status !== 'active') {
       throw new BadRequestException(
         `Impossible d'ajouter une valeur: le projet n'est pas actif (statut: ${indicator.project.status})`,
+      );
+    }
+
+    if (!this.validatePeriodFormat(dto.period, indicator.frequency)) {
+      throw new BadRequestException(
+        `Format de période invalide pour une fréquence "${this.getFrequencyLabel(indicator.frequency)}". ` +
+          `Format attendu : ${this.getPeriodFormat(indicator.frequency)}`,
       );
     }
 
@@ -210,5 +224,80 @@ export class IndicatorsService {
       where: { indicatorId },
       order: { period: 'ASC' },
     });
+  }
+
+  validatePeriodFormat(period: string, frequency: IndicatorFrequency): boolean {
+    const patterns = {
+      daily: /^\d{4}-\d{2}-\d{2}$/, // YYYY-MM-DD
+      weekly: /^\d{4}-W\d{2}$/, // YYYY-WXX
+      monthly: /^\d{4}-\d{2}$/, // YYYY-MM
+      quarterly: /^\d{4}-Q[1-4]$/, // YYYY-QX
+      yearly: /^\d{4}$/, // YYYY
+      free: /.*/, // Pas de contrainte
+    };
+
+    return patterns[frequency].test(period);
+  }
+
+  /**
+   * Retourne le label de la fréquence pour l'affichage
+   */
+  getFrequencyLabel(frequency: IndicatorFrequency): string {
+    const labels = {
+      daily: 'Quotidien',
+      weekly: 'Hebdomadaire',
+      monthly: 'Mensuel',
+      quarterly: 'Trimestriel',
+      yearly: 'Annuel',
+      free: 'Libre',
+    };
+    return labels[frequency];
+  }
+
+  /**
+   * Retourne le format attendu pour la période
+   */
+  getPeriodFormat(frequency: IndicatorFrequency): string {
+    const formats = {
+      daily: 'YYYY-MM-DD (ex: 2026-02-19)',
+      weekly: 'YYYY-WXX (ex: 2026-W08)',
+      monthly: 'YYYY-MM (ex: 2026-02)',
+      quarterly: 'YYYY-QX (ex: 2026-Q1)',
+      yearly: 'YYYY (ex: 2026)',
+      free: 'Texte libre',
+    };
+    return formats[frequency];
+  }
+
+  /**
+   * Génère la période actuelle selon la fréquence
+   */
+  getCurrentPeriod(frequency: IndicatorFrequency): string {
+    const now = new Date();
+    const year = now.getFullYear();
+
+    switch (frequency) {
+      case 'daily':
+        return now.toISOString().slice(0, 10);
+      case 'weekly': {
+        const week = Math.ceil(
+          (now.getTime() - new Date(year, 0, 1).getTime()) /
+            (7 * 24 * 60 * 60 * 1000),
+        );
+        return `${year}-W${String(week).padStart(2, '0')}`;
+      }
+      case 'monthly':
+        return now.toISOString().slice(0, 7);
+      case 'quarterly': {
+        const quarter = Math.ceil((now.getMonth() + 1) / 3);
+        return `${year}-Q${quarter}`;
+      }
+      case 'yearly':
+        return String(year);
+      case 'free':
+        return now.toISOString().slice(0, 7);
+      default:
+        return now.toISOString().slice(0, 7);
+    }
   }
 }
