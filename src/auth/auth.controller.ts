@@ -2,6 +2,7 @@ import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto } from './dto';
+import { JoinDto } from '../invitations/dto/join.dto';
 
 @ApiTags('Authentification')
 @Controller('auth')
@@ -23,5 +24,12 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Identifiants invalides' })
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Post('join')
+  @ApiOperation({ summary: 'Rejoindre via invitation (lien copié)' })
+  @ApiResponse({ status: 201, description: 'Compte créé avec succès' })
+  async join(@Body() dto: JoinDto) {
+    return this.authService.registerFromInvitation(dto);
   }
 }

@@ -1,7 +1,17 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  OneToMany,
+} from 'typeorm';
 import { Organization } from '../../organizations/entities/organization.entity';
+import { ProjectAccess } from '../../project-access/entities/project-access.entity';
 
-export type UserRole = 'admin' | 'manager' | 'agent';
+export type UserRole = 'admin' | 'manager' | 'agent' | 'observer';
 
 @Entity('users')
 export class User {
@@ -20,10 +30,10 @@ export class User {
   @Column()
   lastName: string;
 
-  @Column({ 
-    type: 'enum', 
-    enum: ['admin', 'manager', 'agent'], 
-    default: 'agent' 
+  @Column({
+    type: 'enum',
+    enum: ['admin', 'manager', 'agent', 'observer'],
+    default: 'agent',
   })
   role: UserRole;
 
@@ -33,9 +43,16 @@ export class User {
   @Column()
   organizationId: string;
 
-  @ManyToOne(() => Organization, org => org.users)
+  @ManyToOne(() => Organization, (org) => org.users)
   @JoinColumn({ name: 'organizationId' })
   organization: Organization;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'invitedById' })
+  invitedBy: User | null;
+
+  @OneToMany(() => ProjectAccess, (access) => access.user)
+  projectAccess: ProjectAccess[];
 
   @CreateDateColumn()
   createdAt: Date;

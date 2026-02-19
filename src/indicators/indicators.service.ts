@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Indicator, IndicatorValue } from './entities/indicator.entity';
@@ -44,7 +48,7 @@ export class IndicatorsService {
     if (project.status !== 'active') {
       throw new BadRequestException(
         `Impossible de créer un indicateur: le projet "${project.name}" n'est pas actif (statut: ${project.status}). ` +
-        `Activez d'abord le projet.`
+          `Activez d'abord le projet.`,
       );
     }
 
@@ -110,7 +114,7 @@ export class IndicatorsService {
 
     if (indicator.project.status !== 'active') {
       throw new BadRequestException(
-        `Impossible d'ajouter une valeur: le projet n'est pas actif (statut: ${indicator.project.status})`
+        `Impossible d'ajouter une valeur: le projet n'est pas actif (statut: ${indicator.project.status})`,
       );
     }
 

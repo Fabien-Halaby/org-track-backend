@@ -8,7 +8,9 @@ import { ProjectsModule } from './projects/projects.module';
 import { IndicatorsModule } from './indicators/indicators.module';
 import { ReportsModule } from './reports/reports.module';
 import { DashboardModule } from './dashboard/dashboard.module';
-
+import { InvitationsModule } from './invitations/invitations.module';
+import { ProjectAccessModule } from './project-access/project-access.module';
+import { PermissionsModule } from './permissions/permissions.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -30,6 +32,9 @@ import { DashboardModule } from './dashboard/dashboard.module';
     IndicatorsModule,
     ReportsModule,
     DashboardModule,
+    InvitationsModule,
+    ProjectAccessModule,
+    PermissionsModule,
   ],
 })
 export class AppModule {}

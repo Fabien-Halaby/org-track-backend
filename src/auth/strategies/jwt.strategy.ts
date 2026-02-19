@@ -13,8 +13,8 @@ interface JwtPayload {
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(config: ConfigService) {
-    const secret = config.get('JWT_SECRET');
-    
+    const secret = config.get<string>('JWT_SECRET');
+
     if (!secret) {
       throw new UnauthorizedException('JWT_SECRET not configured');
     }
