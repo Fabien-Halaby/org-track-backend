@@ -35,7 +35,11 @@ export class ProjectAccessService {
     });
   }
 
-  async checkPermission(userId: string, projectId: string, permission: string): Promise<boolean> {
+  async checkPermission(
+    userId: string,
+    projectId: string,
+    permission: string,
+  ): Promise<boolean> {
     const access = await this.accessRepo.findOne({
       where: { userId, projectId },
     });
@@ -44,7 +48,10 @@ export class ProjectAccessService {
     return access.permissions.includes(permission);
   }
 
-  async getUserPermissions(userId: string, projectId: string): Promise<string[]> {
+  async getUserPermissions(
+    userId: string,
+    projectId: string,
+  ): Promise<string[]> {
     const access = await this.accessRepo.findOne({
       where: { userId, projectId },
     });
