@@ -25,32 +25,6 @@ export class ProjectsService {
     private projectAccessService: ProjectAccessService,
   ) {}
 
-  // async findByOrganization(
-  //   orgId: string,
-  //   filters?: { status?: string },
-  //   userId?: string,
-  //   role?: string,
-  // ) {
-  //   const query = this.projectRepo
-  //     .createQueryBuilder('project')
-  //     .where('project.organizationId = :orgId', { orgId });
-
-  //   if (filters?.status) {
-  //     query.andWhere('project.status = :status', { status: filters.status });
-  //   }
-
-  //   const all = await query.orderBy('project.createdAt', 'DESC').getMany();
-
-  //   if (!userId || !role || role === 'admin' || role === 'observer') {
-  //     return all;
-  //   }
-
-  //   const accessibleIds = await this.projectAccessService.findUserProjects(
-  //     userId,
-  //     orgId,
-  //   );
-  //   return all.filter((p) => accessibleIds.includes(p.id));
-  // }
   async findByOrganization(
     orgId: string,
     filters?: { status?: string },
@@ -78,17 +52,7 @@ export class ProjectsService {
       orgId,
     );
 
-    // Si aucun projet assigné explicitement → on vérifie s'il est membre org-level
-    // Dans ce cas, on lui montre tous les projets (invitation sans sélection de projets)
-    if (accessibleIds.length === 0) {
-      const isMember = await this.projectAccessService.isOrgMember(
-        userId,
-        orgId,
-      );
-      if (isMember) return all;
-      return [];
-    }
-
+    // Pas de fallback — sans assignation = liste vide
     return all.filter((p) => accessibleIds.includes(p.id));
   }
 

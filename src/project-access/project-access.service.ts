@@ -7,29 +7,26 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, Not } from 'typeorm';
 import { ProjectAccess, AccessRole } from './entities/project-access.entity';
 import { CreateProjectAccessDto } from './dto/create-project-access.dto';
+import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class ProjectAccessService {
   constructor(
     @InjectRepository(ProjectAccess)
     private accessRepo: Repository<ProjectAccess>,
+    @InjectRepository(User)
+    private userRepo: Repository<User>,
   ) {}
 
   async create(dto: CreateProjectAccessDto) {
-    // Vérifier doublon manuellement (évite l'erreur de contrainte)
-    const where = dto.projectId
-      ? {
-          userId: dto.userId,
-          organizationId: dto.organizationId,
-          projectId: dto.projectId,
-        }
-      : {
-          userId: dto.userId,
-          organizationId: dto.organizationId,
-          projectId: IsNull(),
-        };
+    const existing = await this.accessRepo.findOne({
+      where: {
+        userId: dto.userId,
+        organizationId: dto.organizationId,
+        projectId: dto.projectId ?? IsNull(),
+      },
+    });
 
-    const existing = await this.accessRepo.findOne({ where });
     if (existing) return existing;
 
     const access = this.accessRepo.create({
@@ -42,6 +39,18 @@ export class ProjectAccessService {
     });
 
     return this.accessRepo.save(access);
+  }
+
+  async findByUserAndOrg(userId: string, organizationId: string) {
+    return this.accessRepo.findOne({
+      where: { userId, organizationId, projectId: IsNull() },
+    });
+  }
+
+  async findByUserProject(userId: string, projectId: string) {
+    return this.accessRepo.findOne({
+      where: { userId, projectId },
+    });
   }
 
   async findMembersWithProjects(organizationId: string) {
@@ -69,6 +78,7 @@ export class ProjectAccessService {
       }
 
       if (access.projectId !== null && access.project) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
         membersMap.get(access.userId).projects.push({
           id: access.project.id,
           name: access.project.name,
@@ -78,6 +88,7 @@ export class ProjectAccessService {
       }
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return Array.from(membersMap.values());
   }
 
@@ -131,6 +142,28 @@ export class ProjectAccessService {
     return { success: true };
   }
 
+  // async updateRole(
+  //   userId: string,
+  //   organizationId: string,
+  //   newRole: AccessRole,
+  // ) {
+  //   const accesses = await this.accessRepo.find({
+  //     where: { userId, organizationId },
+  //   });
+
+  //   if (accesses.length === 0) throw new NotFoundException('Membre non trouvé');
+
+  //   const permissions = this.getDefaultPermissions(newRole);
+  //   for (const access of accesses) {
+  //     access.role = newRole;
+  //     access.permissions = permissions;
+  //   }
+  //   await this.accessRepo.save(accesses);
+
+  //   await this.userRepo.update(userId, { role: newRole });
+
+  //   return { success: true, role: newRole };
+  // }
   async updateRole(
     userId: string,
     organizationId: string,
@@ -143,12 +176,26 @@ export class ProjectAccessService {
     if (accesses.length === 0) throw new NotFoundException('Membre non trouvé');
 
     const permissions = this.getDefaultPermissions(newRole);
-    for (const access of accesses) {
-      access.role = newRole;
-      access.permissions = permissions;
+
+    // ✅ Si passage à observer → supprimer toutes les entrées projet
+    if (newRole === 'observer') {
+      const projectAccesses = accesses.filter((a) => a.projectId !== null);
+      if (projectAccesses.length > 0) {
+        await this.accessRepo.remove(projectAccesses);
+      }
     }
 
-    await this.accessRepo.save(accesses);
+    // Mettre à jour l'entrée org-level
+    const orgAccess = accesses.find((a) => a.projectId === null);
+    if (orgAccess) {
+      orgAccess.role = newRole;
+      orgAccess.permissions = permissions;
+      await this.accessRepo.save(orgAccess);
+    }
+
+    // Mettre à jour le rôle dans users
+    await this.userRepo.update(userId, { role: newRole });
+
     return { success: true, role: newRole };
   }
 
@@ -192,9 +239,23 @@ export class ProjectAccessService {
 
   async findByOrganization(organizationId: string) {
     return this.accessRepo.find({
-      where: { organizationId },
+      where: { organizationId, projectId: IsNull() },
       relations: ['user'],
       order: { createdAt: 'DESC' },
+    });
+  }
+
+  async findByUser(userId: string) {
+    return this.accessRepo.find({
+      where: { userId },
+      relations: ['project'],
+    });
+  }
+
+  async findByProject(projectId: string) {
+    return this.accessRepo.find({
+      where: { projectId },
+      relations: ['user'],
     });
   }
 

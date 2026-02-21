@@ -50,13 +50,11 @@ export class InvitationsService {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + (dto.expiresInDays || 7));
 
-    console.log('DEBUG - organizationId reçu:', organizationId);
-
     const tempInvitation = this.invitationRepo.create({
       role: dto.role,
       projectIds: dto.projectIds || null,
       permissions: dto.permissions || this.getDefaultPermissions(dto.role),
-      organizationId: organizationId, // ← AJOUTÉ ICI
+      organizationId: organizationId,
       invitedById,
       email: dto.email || null,
       expiresAt,
@@ -66,7 +64,6 @@ export class InvitationsService {
 
     const saved = await this.invitationRepo.save(tempInvitation);
 
-    // Générer le JWT avec l'ID de l'invitation
     const token = this.jwtService.sign(
       {
         invId: saved.id,
@@ -82,7 +79,6 @@ export class InvitationsService {
       },
     );
 
-    // Mettre à jour avec le vrai token
     saved.token = token;
     await this.invitationRepo.save(saved);
 
@@ -123,52 +119,83 @@ export class InvitationsService {
         },
       };
     } catch (error) {
-      console.log('Error verifying invitation token:', error);
+      console.error("Erreur de vérification du token d'invitation:", error);
       throw new BadRequestException('Token invalide ou expiré');
     }
   }
 
   async consumeToken(token: string, userId: string) {
+    console.log('=== CONSUME TOKEN START ===');
+    console.log('Token:', token.substring(0, 20) + '...');
+    console.log('UserId:', userId);
+
     const payload = this.jwtService.verify<InvitationTokenPayload>(token, {
       secret:
         this.config.get('INVITATION_SECRET') || this.config.get('JWT_SECRET'),
     });
+    console.log('Payload:', payload);
 
     const invitation = await this.invitationRepo.findOne({
       where: { id: payload.invId },
     });
+    console.log('Invitation found:', invitation);
 
     if (!invitation || invitation.used) {
+      console.log('ERROR: Invitation already used or not found');
       throw new BadRequestException('Invitation déjà utilisée');
+    }
+
+    const orgId = invitation.organizationId || payload.orgId;
+    console.log(
+      'OrgId:',
+      orgId,
+      '(from invitation:',
+      invitation.organizationId,
+      'or payload:',
+      payload.orgId,
+      ')',
+    );
+
+    if (!orgId) {
+      console.log('ERROR: No orgId!');
+      throw new BadRequestException('Organization ID manquant');
     }
 
     invitation.used = true;
     await this.invitationRepo.save(invitation);
+    console.log('Invitation marked as used');
 
     const defaultPermissions = this.getDefaultPermissions(payload.role);
+    console.log('Default permissions:', defaultPermissions);
 
-    await this.projectAccessService.create({
+    // Vérifier si existe déjà
+    const existing = await this.projectAccessService.findByUserAndOrg(
       userId,
-      projectId: null,
-      organizationId: payload.orgId,
-      role: payload.role,
-      permissions: defaultPermissions,
-      grantedById: invitation.invitedById,
-    });
+      orgId,
+    );
+    console.log('Existing access:', existing);
 
-    if (payload.projects && payload.projects.length > 0) {
-      for (const projectId of payload.projects) {
-        await this.projectAccessService.create({
+    if (!existing) {
+      console.log('Creating project access...');
+      try {
+        const created = await this.projectAccessService.create({
           userId,
-          projectId,
-          organizationId: payload.orgId,
+          projectId: null,
+          organizationId: orgId,
           role: payload.role,
-          permissions: payload.permissions || defaultPermissions,
+          permissions: defaultPermissions,
           grantedById: invitation.invitedById,
         });
+        console.log('Project access created:', created);
+      } catch (err) {
+        console.log('ERROR creating project access:', err);
+        throw err;
       }
+    } else {
+      console.log('Project access already exists, skipping');
     }
 
+    console.log('=== CONSUME TOKEN END ===');
     return invitation;
   }
 
